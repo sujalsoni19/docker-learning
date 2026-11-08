@@ -236,6 +236,30 @@ A stopped container isn't deleted. It still exists and shows up in `docker ps -a
 docker rm container_id
 ```
 
+To delete a image(images consumes disk space i.e EBS on EC2 instance):
+
+```bash
+docker rmi image_id or name
+```
+
+check how much space is used now in docker:
+
+```bash
+docker system df
+```
+
+check how much space is used now in machine(-h: in human readable form):
+
+```bash
+df -h
+```
+
+clear out other unused leftovers:
+
+```bash
+docker system prune
+```
+
 ---
 
 ## Commands used
