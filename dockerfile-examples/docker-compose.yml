@@ -1,0 +1,51 @@
+
+services:                   # the parts of the app; each service normally runs as one container
+  mysql:                    # service name. Other services on the network reach it with this name
+    container_name: mysql   # fixed name for the container (otherwise Compose generates one)
+    image: mysql            # use the ready-made mysql image from Docker Hub
+    environment:            # environment variables passed into the container (the -e flags)
+      MYSQL_DATABASE: "devops"        # database to create on first start
+      MYSQL_ROOT_PASSWORD: "root"     # root user's password (required by the image)
+    ports:
+      - "3306:3306"         # host port : container port (the -p flag)
+    volumes:
+      - mysql-data:/var/lib/mysql     # named volume : folder where MySQL stores data (the -v flag)
+    networks:
+      - two-tier            # attach this service to the two-tier network
+    restart: always         # restart the container if it stops or crashes, and when Docker/host reboots
+    healthcheck:            # how Docker checks whether the service is actually working
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s         # run the check every 10 seconds
+      timeout: 5s           # a check taking longer than 5 seconds counts as failed
+      retries: 5            # after 5 failures in a row, mark the container unhealthy
+      start_period: 30s     # grace time at startup: failures in the first 30s don't count
+
+  flask:                    # second service: the backend
+    build:
+      context: .            # build the image from the Dockerfile in the current folder
+    container_name: two-tier-backend
+    ports:
+      - "5000:5000"         # reach the app on the EC2 public IP at port 5000
+    environment:
+      MYSQL_HOST: mysql     # the mysql SERVICE name works as the hostname
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: devops
+    networks:
+      - two-tier
+    depends_on:             # start order: this service starts after mysql
+      mysql:
+        condition: service_healthy    # ...and only once mysql's healthcheck passes
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:                    # declares the named volumes used above
+  mysql-data:               # Docker creates and manages it (empty value = default settings)
+
+networks:                   # declares the networks used above
+  two-tier:                 # a bridge network, created automatically
